@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -11,7 +11,9 @@
       <header class="topbar">
         <div class="brand">
           <div class="title">Tents</div>
-          <div class="subtitle">Click to place tents • Right click = grass • Shift+click = clear</div>
+          <div class="subtitle">
+            Click: Tent → Grass → Empty • Right click: Grass • Shift+click: Clear
+          </div>
         </div>
 
         <div class="topControls">
@@ -39,10 +41,17 @@
           </div>
 
           <div class="toggles">
+            <button id="hintBtn" class="ghost" type="button" title="Get a hint">Hint</button>
+            <button id="solveBtn" class="ghost" type="button" title="Solve the puzzle">Solve</button>
+
             <button id="undo" class="ghost" type="button" title="Undo (Ctrl/Cmd+Z)">Undo</button>
             <button id="redo" class="ghost" type="button" title="Redo (Ctrl/Cmd+Y)">Redo</button>
-            <button id="autoGrass" class="ghost" type="button" title="Auto place grass where a tent is impossible">Auto grass</button>
-            <button id="coords" class="ghost" type="button" title="Toggle coordinates">Coords</button>
+            <button id="autoGrass" class="ghost" type="button" title="Auto place grass where a tent is impossible">
+              Auto grass
+            </button>
+            <button id="coords" class="ghost" type="button" title="Toggle coordinates">
+              Coords
+            </button>
 
             <div class="themeToggle">
               <span class="tlabel">Dark</span>
@@ -57,19 +66,97 @@
 
       <section class="statusbar">
         <div id="status" class="status">Ready.</div>
-        <div class="legend">
-          <span class="legendItem"><span class="swatch tree"></span>Tree</span>
-          <span class="legendItem"><span class="swatch tent"></span>Tent</span>
-          <span class="legendItem"><span class="swatch grass"></span>Grass</span>
-          <span class="legendItem"><span class="swatch empty"></span>Empty</span>
+
+        <!-- Legend with real previews + Customize -->
+        <div class="legend legendUpgraded">
+          <button id="customize" class="ghost" type="button" title="Customize colors">
+            Customize
+          </button>
         </div>
       </section>
+
+      <!-- Palette editor (hidden by default; JS toggles display) -->
+      <div id="palettePopover" class="popover" style="display:none" role="dialog" aria-label="Palette">
+        <div class="popoverArrow"></div>
+      
+        <section id="palette" class="palette">
+          <div class="paletteHeader">
+            <div class="paletteTitle">Palette</div>
+            <button id="paletteClose" class="ghost" type="button" aria-label="Close palette">Close</button>
+          </div>
+      
+          <div class="paletteBody">
+            <div class="paletteGrid">
+              <button class="paletteCard" data-target="tree" id="cardTree" type="button">
+                <div class="paletteCell tile" id="paletteTree"></div>
+                <div class="paletteLabel">TREE</div>
+              </button>
+      
+              <button class="paletteCard" data-target="tent" id="cardTent" type="button">
+                <div class="paletteCell tile" id="paletteTent"></div>
+                <div class="paletteLabel">TENT</div>
+              </button>
+      
+              <button class="paletteCard" data-target="grass" id="cardGrass" type="button">
+                <div class="paletteCell tile" id="paletteGrass"></div>
+                <div class="paletteLabel">GRASS</div>
+              </button>
+            </div>
+      
+            <div class="pickerPanel" id="pickerPanel">
+              <div class="pickerTitle" id="pickerTitle">TREE</div>
+      
+              <div class="pickerRow" id="rowTreeCanopy">
+                <label for="pickTreeCanopy">Canopy</label>
+                <input type="color" id="pickTreeCanopy" />
+              </div>
+      
+              <div class="pickerRow" id="rowTreeTrunk">
+                <label for="pickTreeTrunk">Trunk</label>
+                <input type="color" id="pickTreeTrunk" />
+              </div>
+      
+              <div class="pickerRow" id="rowSpriteStroke">
+                <label for="pickSpriteStroke">Outline</label>
+                <input type="color" id="pickSpriteStroke" />
+              </div>
+      
+              <div class="pickerRow" id="rowTentStroke">
+                <label for="pickTentStroke">Tent</label>
+                <input type="color" id="pickTentStroke" />
+              </div>
+      
+              <div class="pickerRow" id="rowTile">
+                <label for="pickTile">Tile/Grass</label>
+                <input type="color" id="pickTile" />
+                <div class="pickerHint">Grass is kept light automatically.</div>
+              </div>
+      
+              <div class="pickerFooter">
+                <button id="resetPalette" class="ghost" type="button">Reset</button>
+                <div class="pickerHint rightHint">Saved automatically.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+      
 
       <main class="stage">
         <div id="mount"></div>
       </main>
     </div>
 
+    <script src="/solver.js"></script>
     <script src="/app.js"></script>
+
+    <div id="celebrate" class="celebrate" style="display:none" aria-live="polite">
+    <canvas id="confetti"></canvas>
+    <div class="celebrateCard">
+        <div class="celebrateTitle">CONGRATULATIONS 🎉</div>
+        <div class="celebrateText">You solved it.</div>
+        <button id="celebrateClose" class="ghost" type="button">Nice</button>
+    </div>
+    </div>
   </body>
 </html>
