@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tents</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="title">Tents</div>
+          <div class="subtitle">Click to place tents • Right click = grass • Shift+click = clear</div>
+        </div>
+
+        <div class="topControls">
+          <div class="loadControls">
+            <label class="field">
+              <span>Puzzle ID</span>
+              <input id="pid" placeholder="e.g. 6008187" value="6008187" />
+            </label>
+
+            <label class="field">
+              <span>Board</span>
+              <select id="size">
+                <option value="0">6×6 Easy</option>
+                <option value="1">6×6 Hard</option>
+                <option value="2">8×8 Easy</option>
+                <option value="3">8×8 Hard</option>
+                <option value="4">10×10 Easy</option>
+                <option value="5">10×10 Hard</option>
+                <option value="6">15×15 Easy</option>
+                <option value="7">15×15 Hard</option>
+              </select>
+            </label>
+
+            <button id="load" type="button">Load</button>
+          </div>
+
+          <div class="toggles">
+            <button id="undo" class="ghost" type="button" title="Undo (Ctrl/Cmd+Z)">Undo</button>
+            <button id="redo" class="ghost" type="button" title="Redo (Ctrl/Cmd+Y)">Redo</button>
+            <button id="autoGrass" class="ghost" type="button" title="Auto place grass where a tent is impossible">Auto grass</button>
+            <button id="coords" class="ghost" type="button" title="Toggle coordinates">Coords</button>
+
+            <div class="themeToggle">
+              <span class="tlabel">Dark</span>
+              <button id="themeBtn" class="switch" type="button" aria-label="Toggle theme">
+                <span class="knob"></span>
+              </button>
+              <span class="tlabel">Light</span>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section class="statusbar">
+        <div id="status" class="status">Ready.</div>
+        <div class="legend">
+          <span class="legendItem"><span class="swatch tree"></span>Tree</span>
+          <span class="legendItem"><span class="swatch tent"></span>Tent</span>
+          <span class="legendItem"><span class="swatch grass"></span>Grass</span>
+          <span class="legendItem"><span class="swatch empty"></span>Empty</span>
+        </div>
+      </section>
+
+      <main class="stage">
+        <div id="mount"></div>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

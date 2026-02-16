@@ -1,0 +1,295 @@
+:root{
+    /* app chrome */
+    --bg: #0b0c10;
+    --panel: rgba(255,255,255,.06);
+    --panel-border: rgba(255,255,255,.10);
+    --text: rgba(255,255,255,.92);
+    --muted: rgba(255,255,255,.62);
+  
+    /* puzzle */
+    --tile: #a8ff9b;          /* light green like screenshots */
+    --grid-bg: #ffffff;
+    --grid-line: #000000;
+  
+    --danger: #ff3b3b;
+  
+    /* sizing */
+    --cell: 52px;
+    --coord: 22px;
+    --line: 1px;
+    --outer: 3px;
+  }
+  
+  :root[data-theme="light"]{
+    --bg: #f6f7fb;
+    --panel: #ffffff;
+    --panel-border: rgba(0,0,0,.10);
+    --text: rgba(0,0,0,.88);
+    --muted: rgba(0,0,0,.55);
+  
+    --grid-bg: #ffffff;
+    --grid-line: #000000;
+  }
+  
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+    background: var(--bg);
+    color: var(--text);
+  }
+  
+  .app{
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  
+  /* --- top bar --- */
+  .topbar{
+    display:flex;
+    align-items:flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  
+  .brand .title{
+    font-weight: 900;
+    letter-spacing:.2px;
+    font-size: 18px;
+  }
+  .brand .subtitle{
+    color: var(--muted);
+    font-size: 12px;
+    margin-top: 4px;
+  }
+  
+  .topControls{
+    display:flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items:flex-end;
+    justify-content:flex-end;
+  }
+  
+  .loadControls{
+    display:grid;
+    grid-template-columns: 180px 150px auto;
+    gap: 10px;
+    align-items:end;
+  }
+  
+  .field span{
+    display:block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  
+  input, select{
+    width:100%;
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--panel-border);
+    background: transparent;
+    color: var(--text);
+    outline: none;
+  }
+  
+  button{
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--panel-border);
+    background: rgba(255,255,255,.08);
+    color: var(--text);
+    font-weight: 800;
+    cursor:pointer;
+  }
+  button.ghost{
+    background: transparent;
+  }
+  button:disabled{ opacity:.6; cursor:not-allowed; }
+  
+  .toggles{
+    display:flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items:center;
+    justify-content:flex-end;
+  }
+  
+  /* theme switch */
+  .themeToggle{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .switch{
+    width: 44px;
+    height: 26px;
+    padding:0;
+    border-radius: 999px;
+    position: relative;
+  }
+  .switch .knob{
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    background: var(--text);
+    position:absolute;
+    top: 50%;
+    left: 3px;
+    transform: translateY(-50%);
+    transition: left .15s ease;
+  }
+  :root[data-theme="light"] .switch .knob{ left: 21px; }
+  
+  /* --- status bar --- */
+  .statusbar{
+    display:flex;
+    align-items:center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+  
+  .status{ color: var(--muted); font-size: 13px; }
+  .legend{ display:flex; gap: 10px; flex-wrap: wrap; }
+  .legendItem{ display:flex; align-items:center; gap: 6px; color: var(--muted); font-size: 12px; }
+  
+  .swatch{
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    border: 1px solid var(--panel-border);
+    display:inline-block;
+  }
+  .swatch.tree{ background: var(--tile); }
+  .swatch.tent{ background: var(--tile); }
+  .swatch.grass{ background: var(--tile); }
+  .swatch.empty{ background: #fff; }
+  
+  .stage{
+    display:flex;
+    justify-content:center;
+  }
+  
+  /* --- puzzle layout --- */
+  
+  /* wrapper reserves coord space so toggling coords doesn't shift */
+  .puzzleWrap{
+    display:inline-block;
+  }
+  .puzzleWrap.coordsOff .coordCell{
+    visibility: hidden; /* keep space, no shift */
+  }
+  
+  .puzzleGrid{
+    display:grid;
+    border: var(--outer) solid var(--grid-line);
+    background: var(--grid-bg);
+    user-select: none;
+  }
+  
+  /* coordinates match hint font; aligned with cells */
+  .coordCell{
+    width: var(--cell);
+    height: var(--coord);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight: 900;
+    font-size: 14px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #000;
+    background: transparent;
+  }
+  .coordCell.left{
+    height: var(--cell);
+  }
+  
+  .corner{
+    width: var(--cell);
+    height: var(--coord);
+  }
+  
+  /* hints: same size as cells, no box borders except the edge touching puzzle */
+  .hintCell{
+    width: var(--cell);
+    height: var(--cell);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight: 900;
+    font-size: 22px;
+    color: #000;
+    background: transparent;
+    border: none;
+  }
+  /* Hint border rules for ALL FOUR SIDES */
+.hintCell.top{
+    border-bottom: var(--line) solid var(--grid-line);
+  }
+  .hintCell.bottom{
+    border-top: var(--line) solid var(--grid-line);
+  }
+  .hintCell.left{
+    border-right: var(--line) solid var(--grid-line);
+  }
+  .hintCell.right{
+    border-left: var(--line) solid var(--grid-line);
+  }
+  
+  /* Optional: bottom coords same as top, already uses .coordCell */
+  /* Optional: right coords same as left, but not full height like left coord numbers */
+  .coordCell.right{
+    height: var(--cell);
+  }
+  
+  .hintCell.bad{
+    color: var(--danger);
+  }
+  
+  /* actual puzzle cells */
+  .boardCell{
+    width: var(--cell);
+    height: var(--cell);
+    border: var(--line) solid var(--grid-line);
+    background: var(--grid-bg);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    position: relative;
+    cursor:pointer;
+  }
+  
+  .boardCell.tile{ background: var(--tile); }
+  
+  .boardCell.illegal::after{
+    content:"";
+    position:absolute;
+    inset: -1px;
+    border: 2px solid var(--danger);
+    pointer-events:none;
+    border-radius: 2px;
+  }
+  
+  /* sprites */
+  .sprite{
+    width: 44px;
+    height: 44px;
+    display:block;
+  }
+  
+  .puzzleWrap.coordsOff .coordCell{
+    visibility: hidden;
+  }
