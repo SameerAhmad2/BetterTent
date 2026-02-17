@@ -187,9 +187,9 @@ Option C: Rename server.js -> server.mjs and run:
 const path = require("path");
 
 // serve static files from this directory
-app.use(express.static(path.join(__dirname, ".")));
+app.use(express.static(path.join(__dirname, "public")));
 
 // make / return index.html
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
+  res.sendFile(path.join(__dirname, "public/index.html"));
 });
