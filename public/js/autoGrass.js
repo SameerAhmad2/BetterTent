@@ -1,5 +1,5 @@
 // autoGrass.js
-import { getState, Cell, pushUndo } from "./state.js";
+import { getState, Cell, pushUndo, popUndo } from "./state.js";
 import { inBounds, neighbors8, orthNeighbors, key } from "./helpers.js";
 import { isTree } from "./validation.js";
 
@@ -44,5 +44,6 @@ export function autoPlaceGrassSafe() {
     }
   }
 
+  if (!changed) popUndo();
   return changed;
 }

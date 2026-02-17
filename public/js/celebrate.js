@@ -3,7 +3,7 @@ import { getState } from "./state.js";
 import { isSolved } from "./solverBridge.js";
 
 let confettiAnim = null;
-let alreadyCelebratedForId = null;
+let celebrating = false;
 
 export function initCelebrate(els) {
   if (!els.celebrateEl || !els.confettiCanvas) return;
@@ -15,18 +15,20 @@ export function initCelebrate(els) {
 }
 
 export function resetCelebrate(els) {
-  alreadyCelebratedForId = null;
+  celebrating = false;
   hide(els);
 }
 
 export function maybeCelebrate(els) {
   const s = getState();
   if (!s) return;
-  if (!isSolved()) return;
+  if (!isSolved()) {
+    celebrating = false;
+    return;
+  }
 
-  const idKey = String(s.id);
-  if (alreadyCelebratedForId === idKey) return;
-  alreadyCelebratedForId = idKey;
+  if (celebrating) return;
+  celebrating = true;
 
   show(els);
 }

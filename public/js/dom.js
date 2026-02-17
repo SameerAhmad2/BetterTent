@@ -7,6 +7,7 @@ export const els = {
     size: document.getElementById("size"),
   
     loadBtn: document.getElementById("load"),
+    randomBtn: document.getElementById("random"),
     undoBtn: document.getElementById("undo"),
     redoBtn: document.getElementById("redo"),
     hintBtn: document.getElementById("hintBtn"),

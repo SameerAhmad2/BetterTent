@@ -31,6 +31,18 @@ export const Cell = {
     if (undoStack.length > 200) undoStack.shift();
     redoStack = [];
   }
+  export function popUndo() {
+    if (undoStack.length > 0) undoStack.pop();
+  }
+  export function cellsChanged(snapshot) {
+    if (!state) return false;
+    for (let y = 0; y < state.cells.length; y++) {
+      for (let x = 0; x < state.cells[y].length; x++) {
+        if (state.cells[y][x] !== snapshot[y][x]) return true;
+      }
+    }
+    return false;
+  }
   export function canUndo() {
     return undoStack.length > 0;
   }

@@ -5,18 +5,18 @@ import { computeErrors, isTree, countTentsRow, countTentsCol } from "./validatio
 import { svgTree, svgTent } from "./sprites.js";
 import { getPrefs } from "./prefs.js";
 
-export function render(els, onCellClick) {
+export function render(els, onCellClick, onHintClick) {
   const s = getState();
-  els.mount.innerHTML = "";
 
-  if (!s) return;
+  if (!s) { els.mount.innerHTML = ""; return; }
 
   // responsive sizing to fill container
-  const containerWidth = els.mount.clientWidth || 900;
+  const containerWidth = els.mount.clientWidth || window.innerWidth - 20 || 900;
   const totalCols = s.w + 4;
-  const usable = Math.max(320, containerWidth - 24);
+  const outerBorder = 6; // 2 × --outer (3px each side)
+  const usable = Math.max(200, containerWidth - outerBorder);
   let cell = Math.floor(usable / totalCols);
-  cell = Math.max(26, Math.min(cell, 60));
+  cell = Math.max(20, Math.min(cell, 60));
   document.documentElement.style.setProperty("--cell", `${cell}px`);
 
   const prefs = getPrefs();
@@ -47,6 +47,7 @@ export function render(els, onCellClick) {
     if (extra.style) Object.assign(d.style, extra.style);
     if (extra.html != null) d.innerHTML = extra.html;
     if (extra.onclick) d.onclick = extra.onclick;
+    if (extra.oncontextmenu) d.oncontextmenu = extra.oncontextmenu;
     if (extra.title) d.title = extra.title;
     grid.appendChild(d);
     return d;
@@ -96,7 +97,10 @@ export function render(els, onCellClick) {
         const x = gx - 2;
         const want = s.colCounts?.[x] ?? 0;
         const bad = colsBad.has(x);
-        addCell("hintCell topHint " + (bad ? "hintBad" : ""), String(want), { title: "Column hint" });
+        addCell("hintCell topHint " + (bad ? "hintBad" : ""), String(want), {
+          title: "Column hint — click to auto-grass",
+          onclick: () => onHintClick?.("col", x),
+        });
         continue;
       }
 
@@ -105,7 +109,10 @@ export function render(els, onCellClick) {
         const x = gx - 2;
         const want = s.colCounts?.[x] ?? 0;
         const bad = colsBad.has(x);
-        addCell("hintCell bottomHint " + (bad ? "hintBad" : ""), String(want), { title: "Column hint" });
+        addCell("hintCell bottomHint " + (bad ? "hintBad" : ""), String(want), {
+          title: "Column hint — click to auto-grass",
+          onclick: () => onHintClick?.("col", x),
+        });
         continue;
       }
 
@@ -114,7 +121,10 @@ export function render(els, onCellClick) {
         const y = gy - 2;
         const want = s.rowCounts?.[y] ?? 0;
         const bad = rowsBad.has(y);
-        addCell("hintCell leftHint " + (bad ? "hintBad" : ""), String(want), { title: "Row hint" });
+        addCell("hintCell leftHint " + (bad ? "hintBad" : ""), String(want), {
+          title: "Row hint — click to auto-grass",
+          onclick: () => onHintClick?.("row", y),
+        });
         continue;
       }
 
@@ -123,7 +133,10 @@ export function render(els, onCellClick) {
         const y = gy - 2;
         const want = s.rowCounts?.[y] ?? 0;
         const bad = rowsBad.has(y);
-        addCell("hintCell rightHint " + (bad ? "hintBad" : ""), String(want), { title: "Row hint" });
+        addCell("hintCell rightHint " + (bad ? "hintBad" : ""), String(want), {
+          title: "Row hint — click to auto-grass",
+          onclick: () => onHintClick?.("row", y),
+        });
         continue;
       }
 
@@ -159,6 +172,7 @@ export function render(els, onCellClick) {
         addCell(cls, "", {
           html,
           onclick: (ev) => onCellClick?.(x, y, ev),
+          oncontextmenu: (ev) => { ev.preventDefault(); onCellClick?.(x, y, ev); },
         });
         continue;
       }
@@ -169,5 +183,5 @@ export function render(els, onCellClick) {
   }
 
   wrap.appendChild(grid);
-  els.mount.appendChild(wrap);
+  els.mount.replaceChildren(wrap);
 }
