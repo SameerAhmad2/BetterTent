@@ -62,15 +62,34 @@ body{
   flex-wrap: wrap;
 }
 
+.brandRow{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brandLogo{
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
 .brand .title{
   font-weight: 900;
   letter-spacing:.2px;
-  font-size: 18px;
+  font-size: 20px;
 }
 .brand .subtitle{
   color: var(--muted);
   font-size: 12px;
-  margin-top: 4px;
+  margin-top: 5px;
+}
+.sourceLink{
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.sourceLink:hover{
+  color: var(--text);
 }
 
 .topControls{
