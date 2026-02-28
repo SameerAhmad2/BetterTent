@@ -11,7 +11,15 @@ let browserPromise = null;
 
 function getBrowser() {
   if (!browserPromise) {
-    browserPromise = chromium.launch({ headless: true }).then((b) => {
+    browserPromise = chromium.launch({
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-dev-shm-usage", // use /tmp instead of /dev/shm (avoids OOM in small containers)
+        "--disable-gpu",
+        "--single-process",        // one process instead of per-tab processes
+      ],
+    }).then((b) => {
       b.on("disconnected", () => {
         console.log("Browser disconnected — will relaunch on next request");
         browserPromise = null;
