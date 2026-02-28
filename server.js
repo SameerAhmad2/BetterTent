@@ -21,6 +21,7 @@ function getBrowser() {
         "--no-sandbox",
         "--disable-dev-shm-usage", // use /tmp instead of /dev/shm (avoids OOM in small containers)
         "--disable-gpu",
+        "--no-zygote",             // avoids zygote process issues in Firecracker/container runtimes
       ],
     }).then((b) => {
       browser = b;
