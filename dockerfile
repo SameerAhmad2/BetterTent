@@ -1,11 +1,8 @@
-# Playwright image includes Chromium + all OS deps
-FROM mcr.microsoft.com/playwright:v1.58.2-jammy
+FROM node:20-slim
 
 WORKDIR /app
 
 COPY package*.json ./
-# Skip browser download — the base image already has Chromium at /ms-playwright
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm ci
 
 COPY . .

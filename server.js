@@ -1,133 +1,56 @@
 const express = require("express");
-const { chromium } = require("playwright");
 const path = require("path");
 
 const app = express();
 app.use(express.json());
 
-// Persistent browser — launched once at startup, reused across all requests.
-// Each request opens its own page and closes it when done.
-let browser = null;
-let browserPromise = null;
+const FETCH_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.5",
+};
 
-function getBrowser() {
-  // Fast path: browser is alive and connected
-  if (browser?.isConnected()) return Promise.resolve(browser);
-  // In-flight launch: multiple requests arriving mid-launch share the same promise
-  if (!browserPromise) {
-    console.log("Launching Chromium...");
-    browserPromise = chromium.launch({
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-dev-shm-usage", // use /tmp instead of /dev/shm (avoids OOM in small containers)
-        "--disable-gpu",
-        "--no-zygote",             // avoids zygote process issues in Firecracker/container runtimes
-      ],
-    }).then((b) => {
-      console.log("Chromium launched successfully");
-      browser = b;
-      browserPromise = null;
-      b.on("disconnected", () => {
-        console.log("Browser disconnected — will relaunch on next request");
-        browser = null;
-      });
-      return b;
-    }).catch((e) => {
-      console.error("Chromium launch failed:", e);
-      browserPromise = null;
-      throw e;
-    });
-  }
-  return browserPromise;
-}
-
-// Warm up the browser immediately so the first request doesn't pay the launch cost.
-console.log("Starting browser warmup...");
-getBrowser()
-  .then(() => console.log("Browser warmup complete"))
-  .catch((e) => console.error("Browser warmup failed:", e));
-
-// Opens a new page, retrying once if the browser died between the isConnected()
-// check and the newPage() call (the window where the race condition can occur).
-async function newPage() {
-  console.log("newPage: getting browser...");
-  try {
-    const b = await getBrowser();
-    console.log("newPage: opening page...");
-    const page = await b.newPage();
-    console.log("newPage: page opened");
-    return page;
-  } catch (e) {
-    console.error("newPage failed:", e.message);
-    if (e.message.includes("closed") || e.message.includes("disconnected")) {
-      console.log("newPage: retrying with fresh browser...");
-      browser = null;
-      const b = await getBrowser();
-      return b.newPage();
-    }
-    throw e;
-  }
+async function fetchHtml(url, init = {}) {
+  const res = await fetch(url, {
+    headers: { ...FETCH_HEADERS, ...(init.headers || {}) },
+    redirect: "follow",
+    ...init,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} from ${url}`);
+  return res.text();
 }
 
 /**
- * Try to locate tree coordinates inside the running page by inspecting common shapes.
- * Defensive heuristic because we don't know the exact internal property names.
+ * Decode tree coordinates from the encoded grid portion of the task string.
+ * Each character advances a position pointer by (charCode - 96) and places a tree.
+ * '_' places a tree without advancing first. 'z' advances by 25 without placing a tree.
+ * Source: puzzle-tents.com jQuery plugin (tents-a99769b381.js)
  */
-function findTreeCoordsInPageState(state, w, h) {
-  const isTree = (v) =>
-    v === 1 ||
-    v === true ||
-    v === "T" ||
-    v === "tree" ||
-    v === "TREE" ||
-    (typeof v === "object" && v && (v.tree || v.isTree));
+function decodeTaskGrid(encoded, w, h) {
+  const trees = [];
+  let i = 0;
 
-  const toCoords = (grid) => {
-    const coords = [];
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        if (isTree(grid?.[y]?.[x])) coords.push([x, y]);
-      }
+  for (let s = 0; s < encoded.length; s++) {
+    const ch = encoded[s];
+    if (ch !== "_") {
+      i += ch.charCodeAt(0) - 96;
     }
-    return coords;
-  };
-
-  const seen = new Set();
-
-  const walk = (obj) => {
-    if (!obj || typeof obj !== "object") return null;
-    if (seen.has(obj)) return null;
-    seen.add(obj);
-
-    if (
-      Array.isArray(obj) &&
-      obj.length === h &&
-      Array.isArray(obj[0]) &&
-      obj[0].length === w
-    ) {
-      const coords = toCoords(obj);
-      if (coords.length > 0) return coords;
+    if (ch === "z") {
+      i--; // 'z' = net +25, no tree placed
+    } else if (i < w * h) {
+      trees.push([i % w, Math.floor(i / w)]);
+      i++;
     }
+  }
 
-    for (const k of Object.keys(obj)) {
-      const found = walk(obj[k]);
-      if (found) return found;
-    }
-    return null;
-  };
-
-  return walk(state);
+  return trees.length > 0 ? trees : null;
 }
 
 /**
- * Shared: extract puzzle data from a loaded Playwright page.
+ * Parse puzzle data from raw HTML.
  * Returns { id, w, h, task, rowCounts, colCounts, trees } or throws.
  */
-async function extractPuzzleFromPage(page, log) {
-  const html = await page.content();
-  log("page content retrieved");
-
+function parsePuzzle(html, log) {
   const taskMatch = html.match(/var\s+task\s*=\s*'([^']+)'/);
   const wMatch = html.match(/puzzleWidth:\s*(\d+)/);
   const hMatch = html.match(/puzzleHeight:\s*(\d+)/);
@@ -141,31 +64,20 @@ async function extractPuzzleFromPage(page, log) {
   const w = Number(wMatch[1]);
   const h = Number(hMatch[1]);
 
-  // Try to extract the puzzle ID from the page
-  const idMatch = html.match(/var\s+puzzleId\s*=\s*'?(\d+)'?/)
-    || html.match(/puzzleId:\s*'?(\d+)'?/)
-    || html.match(/id=(\d{4,})/)
-    || html.match(/"id"\s*:\s*(\d+)/);
+  const idMatch =
+    html.match(/var\s+puzzleId\s*=\s*'?(\d+)'?/) ||
+    html.match(/puzzleId:\s*'?(\d+)'?/) ||
+    html.match(/id=(\d{4,})/) ||
+    html.match(/"id"\s*:\s*(\d+)/);
   const extractedId = idMatch ? Number(idMatch[1]) : null;
 
-  const parts = task.split(",").map(s => s.trim());
+  const parts = task.split(",").map((s) => s.trim());
   const hintParts = parts.slice(1);
-  const ints = hintParts.filter(s => /^-?\d+$/.test(s)).map(Number);
+  const ints = hintParts.filter((s) => /^-?\d+$/.test(s)).map(Number);
   const colCounts = ints.slice(0, w);
   const rowCounts = ints.slice(w, w + h);
 
-  const state = await page.evaluate(() => {
-    const candidates = [];
-    if (typeof window.Game === "object") candidates.push(window.Game);
-    if (typeof window.Puzzle === "object") candidates.push(window.Puzzle);
-    const el = document.querySelector("#game");
-    if (el && window.$) {
-      try { candidates.push(window.$(el).data()); } catch (_) {}
-    }
-    return candidates;
-  });
-
-  const trees = findTreeCoordsInPageState(state, w, h);
+  const trees = decodeTaskGrid(task.split(",")[0], w, h);
   log(`tree extraction complete — found ${trees ? trees.length : 0} trees`);
 
   return { id: extractedId, w, h, task, rowCounts, colCounts, trees };
@@ -173,46 +85,28 @@ async function extractPuzzleFromPage(page, log) {
 
 app.get("/api/tents", async (req, res) => {
   const idRaw = String(req.query.id ?? "").replaceAll(",", "").trim();
-  const sizeIndex = String(req.query.size ?? "0").trim(); // 0 = 6x6 easy on their site
+  const sizeIndex = String(req.query.size ?? "0").trim();
 
   if (!/^\d+$/.test(idRaw)) {
     return res.status(400).json({ error: "Invalid id" });
   }
 
   const reqStart = Date.now();
-  const log = (label) => console.log(`[tents id=${idRaw}] ${label} — ${Date.now() - reqStart}ms`);
+  const log = (label) =>
+    console.log(`[tents id=${idRaw}] ${label} — ${Date.now() - reqStart}ms`);
 
   log("starting request");
 
-  const page = await newPage();
-  log("browser ready + page created");
-
   try {
-    // 1) Go to "Specific puzzle" page
-    await page.goto("https://www.puzzle-tents.com/specific.php", {
-      waitUntil: "domcontentloaded",
+    const form = new URLSearchParams({ size: sizeIndex, id: idRaw });
+    const html = await fetchHtml("https://www.puzzle-tents.com/specific.php", {
+      method: "POST",
+      body: form.toString(),
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
     });
-    log("navigated to specific.php");
+    log("page fetched");
 
-    // 2) Select size + enter ID
-    await page.selectOption('select[name="size"]', sizeIndex).catch(() => {});
-    log("selected size option");
-    await page
-      .fill('input[name="id"], input[name="puzzleID"], input[type="text"]', idRaw)
-      .catch(() => {});
-    log("filled puzzle ID");
-
-    // 3) Submit
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: "domcontentloaded" }).catch(() => {}),
-      page
-        .click('input[type="submit"], button[type="submit"]')
-        .catch(() => page.keyboard.press("Enter")),
-    ]);
-    log("form submitted + navigation complete");
-
-    // 4) Extract puzzle data
-    const data = await extractPuzzleFromPage(page, log);
+    const data = parsePuzzle(html, log);
     data.id = Number(idRaw);
 
     if (!data.trees) {
@@ -220,7 +114,7 @@ app.get("/api/tents", async (req, res) => {
       return res.json({
         ...data,
         trees: null,
-        note: "Got task + counts. Could not auto-extract tree coordinates; extraction needs tweaking for this puzzle instance.",
+        note: "Got task + counts. Could not auto-extract tree coordinates.",
       });
     }
 
@@ -229,9 +123,6 @@ app.get("/api/tents", async (req, res) => {
   } catch (e) {
     log(`ERROR — ${e}`);
     return res.status(500).json({ error: String(e) });
-  } finally {
-    await page.close();
-    log("page closed — total time");
   }
 });
 
@@ -243,27 +134,27 @@ app.get("/api/tents/random", async (req, res) => {
   }
 
   const reqStart = Date.now();
-  const log = (label) => console.log(`[tents random size=${sizeIndex}] ${label} — ${Date.now() - reqStart}ms`);
+  const log = (label) =>
+    console.log(
+      `[tents random size=${sizeIndex}] ${label} — ${Date.now() - reqStart}ms`
+    );
 
   log("starting request");
 
-  const page = await newPage();
-  log("browser ready + page created");
-
   try {
-    await page.goto(`https://www.puzzle-tents.com/?size=${sizeIndex}`, {
-      waitUntil: "domcontentloaded",
-    });
-    log("navigated to random puzzle page");
+    const html = await fetchHtml(
+      `https://www.puzzle-tents.com/?size=${sizeIndex}`
+    );
+    log("page fetched");
 
-    const data = await extractPuzzleFromPage(page, log);
+    const data = parsePuzzle(html, log);
 
     if (!data.trees) {
       log("responding (no trees)");
       return res.json({
         ...data,
         trees: null,
-        note: "Got task + counts. Could not auto-extract tree coordinates; extraction needs tweaking for this puzzle instance.",
+        note: "Got task + counts. Could not auto-extract tree coordinates.",
       });
     }
 
@@ -272,9 +163,6 @@ app.get("/api/tents/random", async (req, res) => {
   } catch (e) {
     log(`ERROR — ${e}`);
     return res.status(500).json({ error: String(e) });
-  } finally {
-    await page.close();
-    log("page closed — total time");
   }
 });
 
@@ -283,7 +171,6 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on ${PORT}`);
 });
 
-// Serve static files from this directory
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
