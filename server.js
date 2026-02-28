@@ -1,12 +1,31 @@
-// Fix for: "Cannot use import statement outside a module"
-// Option A (recommended): Use CommonJS (require) so you don't need "type": "module".
-// Replace your server.js with this file.
-
 const express = require("express");
 const { chromium } = require("playwright");
+const path = require("path");
 
 const app = express();
 app.use(express.json());
+
+// Persistent browser — launched once at startup, reused across all requests.
+// Each request opens its own page and closes it when done.
+let browserPromise = null;
+
+function getBrowser() {
+  if (!browserPromise) {
+    browserPromise = chromium.launch({ headless: true }).then((b) => {
+      b.on("disconnected", () => {
+        console.log("Browser disconnected — will relaunch on next request");
+        browserPromise = null;
+      });
+      return b;
+    });
+  }
+  return browserPromise;
+}
+
+// Warm up the browser immediately so the first request doesn't pay the launch cost.
+getBrowser()
+  .then(() => console.log("Browser ready"))
+  .catch((e) => console.error("Browser warmup failed:", e));
 
 /**
  * Try to locate tree coordinates inside the running page by inspecting common shapes.
@@ -122,10 +141,10 @@ app.get("/api/tents", async (req, res) => {
 
   log("starting request");
 
-  const browser = await chromium.launch({ headless: true });
-  log("browser launched");
+  const b = await getBrowser();
+  log("browser ready");
 
-  const page = await browser.newPage();
+  const page = await b.newPage();
   log("new page created");
 
   try {
@@ -171,8 +190,8 @@ app.get("/api/tents", async (req, res) => {
     log(`ERROR — ${e}`);
     return res.status(500).json({ error: String(e) });
   } finally {
-    await browser.close();
-    log("browser closed — total time");
+    await page.close();
+    log("page closed — total time");
   }
 });
 
@@ -188,10 +207,10 @@ app.get("/api/tents/random", async (req, res) => {
 
   log("starting request");
 
-  const browser = await chromium.launch({ headless: true });
-  log("browser launched");
+  const b = await getBrowser();
+  log("browser ready");
 
-  const page = await browser.newPage();
+  const page = await b.newPage();
   log("new page created");
 
   try {
@@ -217,8 +236,8 @@ app.get("/api/tents/random", async (req, res) => {
     log(`ERROR — ${e}`);
     return res.status(500).json({ error: String(e) });
   } finally {
-    await browser.close();
-    log("browser closed — total time");
+    await page.close();
+    log("page closed — total time");
   }
 });
 
@@ -227,26 +246,9 @@ app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on ${PORT}`);
 });
 
-/*
-Option B: Keep `import` syntax instead.
-
-1) Add this to package.json:
-   {
-     "type": "module"
-   }
-
-2) Then run:
-   node server.js
-
-Option C: Rename server.js -> server.mjs and run:
-   node server.mjs
-*/
-const path = require("path");
-
-// serve static files from this directory
+// Serve static files from this directory
 app.use(express.static(path.join(__dirname, "public")));
 
-// make / return index.html
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public/index.html"));
 });

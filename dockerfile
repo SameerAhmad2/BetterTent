@@ -9,7 +9,6 @@ RUN npm ci
 COPY . .
 
 ENV NODE_ENV=production
-# Render routes traffic via $PORT; EXPOSE is optional but fine
-EXPOSE 10000
+EXPOSE 3000
 
 CMD ["npm", "start"]
