@@ -7,9 +7,13 @@ app.use(express.json());
 
 // Persistent browser — launched once at startup, reused across all requests.
 // Each request opens its own page and closes it when done.
+let browser = null;
 let browserPromise = null;
 
 function getBrowser() {
+  // Fast path: browser is alive and connected
+  if (browser?.isConnected()) return Promise.resolve(browser);
+  // In-flight launch: multiple requests arriving mid-launch share the same promise
   if (!browserPromise) {
     browserPromise = chromium.launch({
       headless: true,
@@ -17,12 +21,13 @@ function getBrowser() {
         "--no-sandbox",
         "--disable-dev-shm-usage", // use /tmp instead of /dev/shm (avoids OOM in small containers)
         "--disable-gpu",
-        "--single-process",        // one process instead of per-tab processes
       ],
     }).then((b) => {
+      browser = b;
+      browserPromise = null;
       b.on("disconnected", () => {
         console.log("Browser disconnected — will relaunch on next request");
-        browserPromise = null;
+        browser = null;
       });
       return b;
     });
@@ -34,6 +39,22 @@ function getBrowser() {
 getBrowser()
   .then(() => console.log("Browser ready"))
   .catch((e) => console.error("Browser warmup failed:", e));
+
+// Opens a new page, retrying once if the browser died between the isConnected()
+// check and the newPage() call (the window where the race condition can occur).
+async function newPage() {
+  try {
+    const b = await getBrowser();
+    return await b.newPage();
+  } catch (e) {
+    if (e.message.includes("closed") || e.message.includes("disconnected")) {
+      browser = null;
+      const b = await getBrowser();
+      return b.newPage();
+    }
+    throw e;
+  }
+}
 
 /**
  * Try to locate tree coordinates inside the running page by inspecting common shapes.
@@ -149,10 +170,9 @@ app.get("/api/tents", async (req, res) => {
 
   log("starting request");
 
-  const b = await getBrowser();
   log("browser ready");
 
-  const page = await b.newPage();
+  const page = await newPage();
   log("new page created");
 
   try {
@@ -215,10 +235,9 @@ app.get("/api/tents/random", async (req, res) => {
 
   log("starting request");
 
-  const b = await getBrowser();
   log("browser ready");
 
-  const page = await b.newPage();
+  const page = await newPage();
   log("new page created");
 
   try {
