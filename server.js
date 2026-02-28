@@ -15,6 +15,7 @@ function getBrowser() {
   if (browser?.isConnected()) return Promise.resolve(browser);
   // In-flight launch: multiple requests arriving mid-launch share the same promise
   if (!browserPromise) {
+    console.log("Launching Chromium...");
     browserPromise = chromium.launch({
       headless: true,
       args: [
@@ -24,6 +25,7 @@ function getBrowser() {
         "--no-zygote",             // avoids zygote process issues in Firecracker/container runtimes
       ],
     }).then((b) => {
+      console.log("Chromium launched successfully");
       browser = b;
       browserPromise = null;
       b.on("disconnected", () => {
@@ -31,24 +33,35 @@ function getBrowser() {
         browser = null;
       });
       return b;
+    }).catch((e) => {
+      console.error("Chromium launch failed:", e);
+      browserPromise = null;
+      throw e;
     });
   }
   return browserPromise;
 }
 
 // Warm up the browser immediately so the first request doesn't pay the launch cost.
+console.log("Starting browser warmup...");
 getBrowser()
-  .then(() => console.log("Browser ready"))
+  .then(() => console.log("Browser warmup complete"))
   .catch((e) => console.error("Browser warmup failed:", e));
 
 // Opens a new page, retrying once if the browser died between the isConnected()
 // check and the newPage() call (the window where the race condition can occur).
 async function newPage() {
+  console.log("newPage: getting browser...");
   try {
     const b = await getBrowser();
-    return await b.newPage();
+    console.log("newPage: opening page...");
+    const page = await b.newPage();
+    console.log("newPage: page opened");
+    return page;
   } catch (e) {
+    console.error("newPage failed:", e.message);
     if (e.message.includes("closed") || e.message.includes("disconnected")) {
+      console.log("newPage: retrying with fresh browser...");
       browser = null;
       const b = await getBrowser();
       return b.newPage();
@@ -171,10 +184,8 @@ app.get("/api/tents", async (req, res) => {
 
   log("starting request");
 
-  log("browser ready");
-
   const page = await newPage();
-  log("new page created");
+  log("browser ready + page created");
 
   try {
     // 1) Go to "Specific puzzle" page
@@ -236,10 +247,8 @@ app.get("/api/tents/random", async (req, res) => {
 
   log("starting request");
 
-  log("browser ready");
-
   const page = await newPage();
-  log("new page created");
+  log("browser ready + page created");
 
   try {
     await page.goto(`https://www.puzzle-tents.com/?size=${sizeIndex}`, {
